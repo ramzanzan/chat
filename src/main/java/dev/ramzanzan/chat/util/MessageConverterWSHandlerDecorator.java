@@ -12,12 +12,8 @@ public class MessageConverterWSHandlerDecorator<T,R extends WebSocketMessage> ex
     private Function<WebSocketMessage<T>,R> converter;
 
     public MessageConverterWSHandlerDecorator(WebSocketHandler delegate, Function<WebSocketMessage<T>,R> converter){
-        this(delegate);
-        this.converter=converter;
-    }
-
-    public MessageConverterWSHandlerDecorator(WebSocketHandler delegate) {
         super(delegate);
+        this.converter=converter;
     }
 
     @Override
