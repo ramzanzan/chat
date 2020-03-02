@@ -44,20 +44,17 @@ public abstract class RimpMessage<D,S> {
     protected D data;
 
     public RimpMessage(Method _method){
-        id = generateId();
         method = _method;
         isRequestNotResponse = true;
     }
 
-    public RimpMessage(String _id, int _statusCode, Method _method){
-        id = _id;
+    public RimpMessage(int _statusCode, Method _method){
         statusCode = _statusCode;
         method=_method;
         isRequestNotResponse =false;
     }
 
     public RimpMessage<D,S> setId(String _id){
-        id=_id;
         return this;
     }
 
@@ -86,10 +83,4 @@ public abstract class RimpMessage<D,S> {
     }
 
     public abstract S serialize();
-
-    protected String generateId(){
-        byte[] bytes = new byte[6];
-        random.nextBytes(bytes);
-        return new String(bytes, StandardCharsets.UTF_8);
-    }
 }

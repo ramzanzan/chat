@@ -6,13 +6,9 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 
 import java.nio.ByteBuffer;
-import java.nio.charset.Charset;
-import java.nio.charset.CharsetEncoder;
-import java.nio.charset.StandardCharsets;
+import java.nio.charset.*;
 import java.text.ParseException;
 import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
 
 public class ByteBufferedRimpMessage extends RimpMessage<ByteBuffer,ByteBuffer> {
 
@@ -25,8 +21,8 @@ public class ByteBufferedRimpMessage extends RimpMessage<ByteBuffer,ByteBuffer> 
         super(_method);
     }
 
-    public ByteBufferedRimpMessage(String _id, int _statusCode, Method _method) {
-        super(_id, _statusCode,_method);
+    public ByteBufferedRimpMessage(int _statusCode, Method _method) {
+        super(_statusCode,_method);
     }
 
     @Override
@@ -81,8 +77,9 @@ public class ByteBufferedRimpMessage extends RimpMessage<ByteBuffer,ByteBuffer> 
     public static ByteBufferedRimpMessage from(ByteBuffer _bb, boolean _newBackedBuffer) throws ParseException{
         var bb = _newBackedBuffer ? Util.deepClone(_bb) : _bb;
         var pline = parseProtocolLine(bb);
+        if(pline[0]!="RIMP") throw new ParseException("It's not RIMP message",0);
         ByteBufferedRimpMessage message = pline.length==4
-                ? new ByteBufferedRimpMessage(pline[1],Integer.parseInt(pline[2]),Method.getValue(pline[3]))
+                ? new ByteBufferedRimpMessage(Integer.parseInt(pline[2]),Method.getValue(pline[3]))
                 : new ByteBufferedRimpMessage(Method.getValue(pline[2]));
         message.setId(pline[1]);
         var headers = parseHeaders(bb,message.headers);

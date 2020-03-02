@@ -10,7 +10,9 @@ import org.springframework.web.socket.handler.ConcurrentWebSocketSessionDecorato
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 @Getter
 @Slf4j
@@ -18,9 +20,8 @@ public class ChattingPeerSession {
 
     private String id;
     private WebSocketSession wss;
-    private Map<String, ChattingPeerSession> outboundInvites;    //by usId
-    private Map<String, ChattingPeerSession> inboundInvites;     //by msgId
-    private Map<String, ChattingPeerSession> dialogs;            //by usId
+    private Set<String> invitesFrom;
+    private Map<String, ChattingPeerSession> dialogs;
 
     public ChattingPeerSession(WebSocketSession _wss){
         wss = new ConcurrentWebSocketSessionDecorator(_wss, 2000, 1<<12);
@@ -28,8 +29,7 @@ public class ChattingPeerSession {
 
     public void authorize(String _id){
         id=_id;
-        outboundInvites = new ConcurrentHashMap<>();
-        inboundInvites = new ConcurrentHashMap<>();
+        invitesFrom = ConcurrentHashMap.newKeySet();
         dialogs = new ConcurrentHashMap<>();
     }
 
@@ -56,5 +56,32 @@ public class ChattingPeerSession {
         }
     }
 
+    public boolean isClosed(){
+        return !wss.isOpen();
+    }
+
+    private ReentrantReadWriteLock lock = new ReentrantReadWriteLock(true);
+
+    public void lockRead(){
+        lock.readLock().lock();
+    }
+
+    public void unlockRead(){
+        lock.readLock().unlock();
+    }
+
+    public void lockWrite(){
+        lock.writeLock().lock();
+    }
+
+    public void unlockWrite(){
+        lock.writeLock().unlock();
+    }
+
+    @Override
+    public String toString() {
+        var idd = id==null ? "null" : id;
+        return "wss.id: "+wss.getId()+" id: "+idd;
+    }
 }
 

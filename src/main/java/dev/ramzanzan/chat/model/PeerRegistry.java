@@ -38,8 +38,9 @@ public class PeerRegistry<T> {
         if (!sessions.containsKey(id)) return null;
         trieLock.writeLock().lock();
         trie.remove(id);
+        var r = sessions.remove(id);
         trieLock.writeLock().unlock();
-        return sessions.remove(id);
+        return r;
     }
 
     @SuppressWarnings("unchecked")
