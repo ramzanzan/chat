@@ -12,7 +12,7 @@
     <artifactId>chat</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>chat</name>
-    <description>Chat for chating</description>
+    <description>Chat for chatting</description>
 
     <properties>
         <java.version>13</java.version>

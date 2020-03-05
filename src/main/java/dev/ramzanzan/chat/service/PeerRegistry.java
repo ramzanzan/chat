@@ -1,4 +1,4 @@
-package dev.ramzanzan.chat.model;
+package dev.ramzanzan.chat.service;
 
 import org.apache.commons.collections4.trie.PatriciaTrie;
 import org.springframework.lang.Nullable;

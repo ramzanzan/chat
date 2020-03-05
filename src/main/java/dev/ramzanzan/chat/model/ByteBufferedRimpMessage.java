@@ -77,7 +77,7 @@ public class ByteBufferedRimpMessage extends RimpMessage<ByteBuffer,ByteBuffer> 
     public static ByteBufferedRimpMessage from(ByteBuffer _bb, boolean _newBackedBuffer) throws ParseException{
         var bb = _newBackedBuffer ? Util.deepClone(_bb) : _bb;
         var pline = parseProtocolLine(bb);
-        if(pline[0]!="RIMP") throw new ParseException("It's not RIMP message",0);
+        if(!pline[0].equals("RIMP")) throw new ParseException("It's not RIMP message",0);
         ByteBufferedRimpMessage message = pline.length==4
                 ? new ByteBufferedRimpMessage(Integer.parseInt(pline[2]),Method.getValue(pline[3]))
                 : new ByteBufferedRimpMessage(Method.getValue(pline[2]));
@@ -97,7 +97,7 @@ public class ByteBufferedRimpMessage extends RimpMessage<ByteBuffer,ByteBuffer> 
      * else ParseException will be thrown
      * Line are returned in uppercase
      */
-    protected static String[] parseProtocolLine(ByteBuffer _bb) throws ParseException {
+    private static String[] parseProtocolLine(ByteBuffer _bb) throws ParseException {
         var sb = new StringBuilder();
         byte cr='\r', lf='\n';
         byte b =_bb.get();
@@ -120,7 +120,7 @@ public class ByteBufferedRimpMessage extends RimpMessage<ByteBuffer,ByteBuffer> 
      * else ParseException will be thrown
      * Header names are returned in uppercase
      */
-    protected static MultiValueMap<String,String> parseHeaders(ByteBuffer _bb,@Nullable MultiValueMap<String,String> _map)
+    private static MultiValueMap<String,String> parseHeaders(ByteBuffer _bb,@Nullable MultiValueMap<String,String> _map)
             throws ParseException
     {
         var hdrs = _map != null ? _map : new LinkedMultiValueMap<String,String>();

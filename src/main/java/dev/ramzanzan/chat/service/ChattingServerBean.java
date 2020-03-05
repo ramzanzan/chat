@@ -17,7 +17,7 @@ import java.util.stream.Collectors;
 
 @Service
 @Slf4j
-public class ChattingBean {
+public class ChattingServerBean {
 
     private interface Header{
         String AUTHORIZATION = "AUTHORIZATION";
@@ -116,29 +116,29 @@ public class ChattingBean {
     }
 
     private boolean checkAuth(ChattingPeerSession _peer, MultiValueMap<String,String> _headers){
-         return  _peer.isAuthorized()
-                 && _peer.getId().equals(_headers.getFirst(Header.FROM));
+        return  _peer.isAuthorized()
+                && _peer.getId().equals(_headers.getFirst(Header.FROM));
     }
 
-    private void lockPairRead(ChattingPeerSession peer1, ChattingPeerSession peer2){
+    private void lockPairSharable(ChattingPeerSession peer1, ChattingPeerSession peer2){
         boolean ascOrder = peer1.getId().compareTo(peer2.getId())<0;
         if(ascOrder){
-            peer1.lockRead();
-            peer2.lockRead();
+            peer1.lockSharable();
+            peer2.lockSharable();
         }else {
-            peer2.lockRead();
-            peer1.lockRead();
+            peer2.lockSharable();
+            peer1.lockSharable();
         }
     }
 
-    private void unlockPairRead(ChattingPeerSession peer1, ChattingPeerSession peer2){
+    private void unlockPairSharable(ChattingPeerSession peer1, ChattingPeerSession peer2){
         boolean ascOrder = peer1.getId().compareTo(peer2.getId())<0;
         if(ascOrder){
-            peer2.unlockRead();
-            peer1.unlockRead();
+            peer2.unlockSharable();
+            peer1.unlockSharable();
         }else {
-            peer1.unlockRead();
-            peer2.unlockRead();
+            peer1.unlockSharable();
+            peer2.unlockSharable();
         }
     }
 
@@ -156,16 +156,16 @@ public class ChattingBean {
             return;
         }
 
-        toPeer.lockRead();
+        toPeer.lockSharable();
         if(toPeer.isClosed()){
-            toPeer.unlockRead();
+            toPeer.unlockSharable();
             var response = new ByteBufferedRimpMessage(Status.NOT_FOUND,_msg.getMethod());
             response.addHeader(Header.FROM,toId);
             send(_from,response);
             return;
         }
         toPeer.getInvitesFrom().add(_from.getId());
-        toPeer.unlockRead();
+        toPeer.unlockSharable();
 
         send(toPeer,_msg);
     }
@@ -184,29 +184,29 @@ public class ChattingBean {
 
 
         if(inviter==null || inviter.isClosed()) {
-            _invited.lockRead();
+            _invited.lockSharable();
             if(_invited.isClosed()) {
                 //do nothing
-                _invited.unlockRead();
+                _invited.unlockSharable();
                 return;
             }
             _invited.getInvitesFrom().remove(inviterId);
-            _invited.unlockRead();
+            _invited.unlockSharable();
 
             var close = new ByteBufferedRimpMessage(RimpMessage.Method.CLOSE);
             close.addHeader(Header.FROM,inviterId);
             send(_invited,close);
             return;
         }else {
-            lockPairRead(inviter,_invited);
+            lockPairSharable(inviter,_invited);
             if(_invited.isClosed()){
                 //do nothing
-                unlockPairRead(inviter,_invited);
+                unlockPairSharable(inviter,_invited);
                 return;
             }
             if(inviter.isClosed()){
                 _invited.getInvitesFrom().remove(inviterId);
-                unlockPairRead(inviter,_invited);
+                unlockPairSharable(inviter,_invited);
 
                 var close = new ByteBufferedRimpMessage(RimpMessage.Method.CLOSE);
                 close.addHeader(Header.FROM,inviterId);
@@ -218,7 +218,7 @@ public class ChattingBean {
                 inviter.getDialogs().put(_invited.getId(), _invited);
             }
             _invited.getInvitesFrom().remove(inviterId);
-            unlockPairRead(inviter,_invited);
+            unlockPairSharable(inviter,_invited);
         }
         send(inviter,_msg);
     }
@@ -263,30 +263,30 @@ public class ChattingBean {
         }
         if(!checkAddressing(_from,_msg)) return;
         var toId = _msg.getHeaders().getFirst(Header.TO);
-        _from.lockRead();
+        _from.lockSharable();
         var toPeer = _from.getDialogs().remove(toId);
-        _from.unlockRead();
+        _from.unlockSharable();
         if(toPeer!=null && !toPeer.isClosed()) {
-            toPeer.lockRead();
-                if(toPeer.isClosed()) {
-                    toPeer.unlockRead();
-                    return;
-                }
-                toPeer.getDialogs().remove(_from.getId());
-            toPeer.unlockRead();
+            toPeer.lockSharable();
+            if(toPeer.isClosed()) {
+                toPeer.unlockSharable();
+                return;
+            }
+            toPeer.getDialogs().remove(_from.getId());
+            toPeer.unlockSharable();
             send(toPeer,_msg);
         }
     }
 
-    private void closeMalicious(ChattingPeerSession _peer, String _reason){
+    public void closeMalicious(ChattingPeerSession _peer, String _reason){
         //todo
         close(_peer);
     }
 
-    private void close(ChattingPeerSession _peer){
+    public void close(ChattingPeerSession _peer){
         if(_peer.isClosed()) return;
 
-        _peer.lockWrite();
+        _peer.lockExclusively();
         if(_peer.isClosed()) return;
         try {
             _peer.getWss().close();
@@ -305,7 +305,10 @@ public class ChattingBean {
         for (var peer : _peer.getDialogs().values()){
             send(peer,closeMsg);
         }
-        _peer.unlockWrite();
+        _peer.unlockExclusively();
     }
-
 }
+
+
+
+

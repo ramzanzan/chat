@@ -62,19 +62,19 @@ public class ChattingPeerSession {
 
     private ReentrantReadWriteLock lock = new ReentrantReadWriteLock(true);
 
-    public void lockRead(){
+    public void lockSharable(){
         lock.readLock().lock();
     }
 
-    public void unlockRead(){
+    public void unlockSharable(){
         lock.readLock().unlock();
     }
 
-    public void lockWrite(){
+    public void lockExclusively(){
         lock.writeLock().lock();
     }
 
-    public void unlockWrite(){
+    public void unlockExclusively(){
         lock.writeLock().unlock();
     }
 
