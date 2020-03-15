@@ -1,0 +1,38 @@
+{
+  "name": "chat-client",
+  "version": "0.0.1",
+  "type": "module",
+  "private": true,
+  "author": "ramzanzan",
+  "license": "ISC",
+  "dependencies": {
+    "buffer": "^5.5.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.8.7",
+    "@babel/plugin-proposal-class-properties": "^7.8.3",
+    "@babel/preset-env": "^7.8.7",
+    "ava": "^3.5.0",
+    "babel-loader": "^8.0.6",
+    "esm": "^3.2.25",
+    "webpack": "^4.42.0",
+    "webpack-cli": "^3.3.11"
+  },
+
+  "scripts": {
+    "test": "ava"
+  },
+  "ava": {
+    "files": [
+      "src/test/js/**/*"
+    ],
+    "timeout": "60m",
+    "concurrency": 8,
+    "failFast": true,
+    "failWithoutAssertions": false,
+    "environmentVariables": {},
+    "verbose": true,
+    "require": ["esm"],
+    "nodeArguments": []
+  }
+}
