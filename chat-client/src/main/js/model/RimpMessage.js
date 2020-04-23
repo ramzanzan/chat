@@ -21,10 +21,15 @@ export default class RimpMessage{
         REPORT: 'REPORT'
     };
 
+    static STATUS = {
+        OK: 200,
+        NOT_FOUND: 123, //todo
+    };
+
     static RIMP = "RIMP";
     static CRLF = '\r\n';
 
-    static newRequest(method, headers, data){
+    static newRequest(method, headers = new Map(), data = undefined){
         if(!headers) throw Error("headers is empty");
         if(data!==undefined && (!data instanceof Buffer)) throw Error("data must be Buffer");
         //mass of checks

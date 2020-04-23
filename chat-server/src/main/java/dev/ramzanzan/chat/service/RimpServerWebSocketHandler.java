@@ -1,37 +1,37 @@
-package ramzanzan.chat.service;
+package dev.ramzanzan.chat.service;
 
-import ramzanzan.chat.model.ByteBufferedRimpMessage;
-import ramzanzan.chat.model.ChattingPeerSession;
+import dev.ramzanzan.chat.model.ByteBufferedRimpMessage;
+import dev.ramzanzan.chat.model.RimpClientSession;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.*;
 
-@Component
 @Slf4j
-public class ChattingWebSocketHandler implements WebSocketHandler {
+@Component
+public class RimpServerWebSocketHandler implements WebSocketHandler {
 
-    private static final String chattingPeerSession = "chps";
+    private static final String peerSession = "chps";
 
     @Autowired
-    private ChattingServerBean chattingBean;
+    private RimpServer server;
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
-        var chps = new ChattingPeerSession(session);
-        session.getAttributes().put(chattingPeerSession,chps);
+        var chps = new RimpClientSession(session);
+        session.getAttributes().put(peerSession,chps);
     }
 
     @Override
     public void handleMessage(WebSocketSession session, WebSocketMessage<?> message) throws Exception {
-        var chps = (ChattingPeerSession)session.getAttributes().get(chattingPeerSession);
+        var chps = (RimpClientSession)session.getAttributes().get(peerSession);
         if(message instanceof BinaryMessage) {
-            var msg = ByteBufferedRimpMessage.from(((BinaryMessage) message).getPayload(), false);
-            chattingBean.process(chps, msg);
+            var msg = ByteBufferedRimpMessage.deserialize(((BinaryMessage) message).getPayload(), false);
+            server.process(chps, msg);
         }
         else {
             var str = "Unsupported web socket message from: " + chps + " msg: " + message.toString();
-            chattingBean.closeMalicious(chps,str);
+            server.closeMalicious(chps,str);
         }
 //        }else if (message instanceof PongMessage){
 //

@@ -1,26 +1,20 @@
-package ramzanzan.chat.service;
+package dev.ramzanzan.chat.service;
 
-import ramzanzan.chat.exceptions.RimpIOException;
-import dev.ramzanzan.chat.model.*;
+import dev.ramzanzan.chat.exceptions.RimpIOException;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
-import org.springframework.stereotype.Service;
+import org.springframework.http.*;
 import org.springframework.util.MultiValueMap;
-import ramzanzan.chat.model.ByteBufferedRimpMessage;
-import ramzanzan.chat.model.ChattingPeerSession;
-import ramzanzan.chat.model.RimpMessage;
+import dev.ramzanzan.chat.model.ByteBufferedRimpMessage;
+import dev.ramzanzan.chat.model.RimpClientSession;
+import dev.ramzanzan.chat.model.RimpMessage;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.stream.Collectors;
 
-@Service
 @Slf4j
-public class ChattingServerBean {
+public class RimpServer {
 
     private interface Header{
         String AUTHORIZATION = "AUTHORIZATION";
@@ -40,12 +34,16 @@ public class ChattingServerBean {
     private static final int ID_MIN_CHARS = 4;
     private static final int ID_MAX_CHARS = 64;
     private static final String ID_PATTERN = "[a-zA-Z0-9_-]{4,64}";
+    private static final String ID_GLOB_CHAR = "*";
     private static final int SEARCH_COUNT = 10;
 
-    @Autowired
-    private PeerRegistry<ChattingPeerSession> registry;
+    private Registry<RimpClientSession> registry;
 
-    public void process(ChattingPeerSession _peer, ByteBufferedRimpMessage _msg){
+    public RimpServer(Registry<RimpClientSession> _registry){
+        registry=_registry;
+    }
+
+    public void process(RimpClientSession _peer, ByteBufferedRimpMessage _msg){
         if(_msg.isRequestNotResponse())
             switch (_msg.getMethod()){
                 case FIND : handleFind(_peer,_msg); break;
@@ -62,7 +60,7 @@ public class ChattingServerBean {
             }
     }
 
-    private boolean send(ChattingPeerSession _peer, ByteBufferedRimpMessage _msg){
+    private boolean send(RimpClientSession _peer, ByteBufferedRimpMessage _msg){
         if(_peer==null || _peer.isClosed()) return false;
         try {
             _peer.send(_msg);
@@ -75,34 +73,45 @@ public class ChattingServerBean {
     }
 
     private boolean checkIdSpelling(String _id){
-        if(_id==null || _id.length()<ID_MIN_CHARS || _id.length()>ID_MAX_CHARS) return false;
-        return _id.matches(ID_PATTERN);
+        return _id.matches(ID_PATTERN+"\\"+ID_GLOB_CHAR+"?");
     }
 
-    private void handleFind(ChattingPeerSession _peer, ByteBufferedRimpMessage _msg){
+    private void handleFind(RimpClientSession _peer, ByteBufferedRimpMessage _msg){
         var query = _msg.getHeaders().getFirst(Header.QUERY);
-        if(!checkIdSpelling(query)){
-            //todo or bad_request
+        if(query==null || !checkIdSpelling(query)){
+            query = query==null ? "null" : query;
             closeMalicious(_peer,"Bad find: bad search string: "+query+" right pattern: "+ID_PATTERN);
             return;
         }
-        ChattingPeerSession[] peers = registry.find(query,SEARCH_COUNT);
-        String ids;
-        if (peers==null) ids="";
-        else ids = Arrays.stream(peers).map(ChattingPeerSession::getId).collect(Collectors.joining(" "));
 
-        var response = new ByteBufferedRimpMessage(Status.OK,_msg.getMethod());
-        response.addHeader(Header.QUERY, query);
-        response.addHeader(HttpHeaders.CONTENT_TYPE,MediaType.TEXT_PLAIN_VALUE); //todo encoding
-        var charset = StandardCharsets.UTF_16;
-        response.setData(charset.encode(ids));
+        String result = null;
+        if(query.endsWith(ID_GLOB_CHAR)){
+            query = query.substring(0,query.length()-1);
+            RimpClientSession[] peers = registry.find(query,SEARCH_COUNT);
+            if (peers!=null)
+                result = Arrays.stream(peers).map(RimpClientSession::getId).collect(Collectors.joining(" "));
+        }else if(registry.contains(query)) {
+            result = query;
+        }
+        ByteBufferedRimpMessage response;
+        if (result==null) {
+            response = new ByteBufferedRimpMessage(Status.NOT_FOUND, RimpMessage.Method.FIND);
+            response.addHeader(Header.QUERY, query);
+        }
+        else {
+            response = new ByteBufferedRimpMessage(Status.OK, RimpMessage.Method.FIND);
+            response.addHeader(Header.QUERY, query);
+//            response.addHeader(HttpHeaders.CONTENT_TYPE,MediaType.TEXT_PLAIN_VALUE); //todo ? && encoding
+            var charset = StandardCharsets.UTF_16;
+            response.setData(charset.encode(result));
+        }
         send(_peer,response);
     }
 
-    private void handleJoin(ChattingPeerSession _peer, ByteBufferedRimpMessage _msg){
+    private void handleJoin(RimpClientSession _peer, ByteBufferedRimpMessage _msg){
         var proposedId = _msg.getHeaders().getFirst(Header.FROM);
-        if(!checkIdSpelling(proposedId)){
-            //todo or bad_req
+        if(proposedId==null || !checkIdSpelling(proposedId)){
+            proposedId = proposedId==null ? "null" : proposedId;
             closeMalicious(_peer,"Bad join: bad id: "+proposedId+" right pattern: "+ID_PATTERN);
             return;
         }
@@ -118,12 +127,12 @@ public class ChattingServerBean {
         send(_peer,response);
     }
 
-    private boolean checkAuth(ChattingPeerSession _peer, MultiValueMap<String,String> _headers){
+    private boolean checkAuth(RimpClientSession _peer, MultiValueMap<String,String> _headers){
         return  _peer.isAuthorized()
                 && _peer.getId().equals(_headers.getFirst(Header.FROM));
     }
 
-    private void lockPairSharable(ChattingPeerSession peer1, ChattingPeerSession peer2){
+    private void lockPairSharable(RimpClientSession peer1, RimpClientSession peer2){
         boolean ascOrder = peer1.getId().compareTo(peer2.getId())<0;
         if(ascOrder){
             peer1.lockSharable();
@@ -134,7 +143,7 @@ public class ChattingServerBean {
         }
     }
 
-    private void unlockPairSharable(ChattingPeerSession peer1, ChattingPeerSession peer2){
+    private void unlockPairSharable(RimpClientSession peer1, RimpClientSession peer2){
         boolean ascOrder = peer1.getId().compareTo(peer2.getId())<0;
         if(ascOrder){
             peer2.unlockSharable();
@@ -145,7 +154,7 @@ public class ChattingServerBean {
         }
     }
 
-    private void handleInvite(ChattingPeerSession _from, ByteBufferedRimpMessage _msg){
+    private void handleInvite(RimpClientSession _from, ByteBufferedRimpMessage _msg){
         if(!checkAuth(_from,_msg.getHeaders())) {
             closeMalicious(_from, "Unauthorized");
             return;
@@ -173,7 +182,7 @@ public class ChattingServerBean {
         send(toPeer,_msg);
     }
 
-    private void handleInviteResponse(ChattingPeerSession _invited, ByteBufferedRimpMessage _msg){
+    private void handleInviteResponse(RimpClientSession _invited, ByteBufferedRimpMessage _msg){
         if(!checkAuth(_invited,_msg.getHeaders())){
             closeMalicious(_invited,"Unauthorized");
             return;
@@ -226,12 +235,12 @@ public class ChattingServerBean {
         send(inviter,_msg);
     }
 
-    private boolean checkAddressing(ChattingPeerSession _from, ByteBufferedRimpMessage _msg){
+    private boolean checkAddressing(RimpClientSession _from, ByteBufferedRimpMessage _msg){
         var toId = _msg.getHeaders().getFirst(Header.TO);
         return _from.hasPaired(toId);
     }
 
-    private void relay(ChattingPeerSession _from, ByteBufferedRimpMessage _msg){
+    private void relay(RimpClientSession _from, ByteBufferedRimpMessage _msg){
         var toId = _msg.getHeaders().getFirst(Header.TO);
         var toPeer = _from.getPaired(toId);
         if(toPeer==null || toPeer.isClosed()){
@@ -241,7 +250,7 @@ public class ChattingServerBean {
             send(toPeer,_msg);
     }
 
-    private void handleSend(ChattingPeerSession _from, ByteBufferedRimpMessage _msg){
+    private void handleSend(RimpClientSession _from, ByteBufferedRimpMessage _msg){
         if(!checkAuth(_from,_msg.getHeaders())) {
             closeMalicious(_from, "Unauthorized");
             return;
@@ -250,7 +259,7 @@ public class ChattingServerBean {
         relay(_from,_msg);
     }
 
-    private void handleSendResponse(ChattingPeerSession _from, ByteBufferedRimpMessage _msg){
+    private void handleSendResponse(RimpClientSession _from, ByteBufferedRimpMessage _msg){
         if(!checkAuth(_from,_msg.getHeaders())) {
             closeMalicious(_from, "Unauthorized");
             return;
@@ -259,7 +268,7 @@ public class ChattingServerBean {
         relay(_from,_msg);
     }
 
-    private void handleClose(ChattingPeerSession _from, ByteBufferedRimpMessage _msg){
+    private void handleClose(RimpClientSession _from, ByteBufferedRimpMessage _msg){
         if(!checkAuth(_from,_msg.getHeaders())) {
             closeMalicious(_from, "Unauthorized");
             return;
@@ -281,12 +290,12 @@ public class ChattingServerBean {
         }
     }
 
-    public void closeMalicious(ChattingPeerSession _peer, String _reason){
+    public void closeMalicious(RimpClientSession _peer, String _reason){
         //todo
         close(_peer);
     }
 
-    public void close(ChattingPeerSession _peer){
+    public void close(RimpClientSession _peer){
         if(_peer.isClosed()) return;
 
         _peer.lockExclusively();

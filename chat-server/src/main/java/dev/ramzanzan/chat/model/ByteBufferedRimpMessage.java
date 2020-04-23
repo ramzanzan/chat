@@ -1,14 +1,16 @@
-package ramzanzan.chat.model;
+package dev.ramzanzan.chat.model;
 
-import ramzanzan.chat.util.Util;
+import dev.ramzanzan.chat.util.Util;
 import org.springframework.lang.Nullable;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 
 import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
 import java.nio.charset.*;
 import java.text.ParseException;
 import java.util.Arrays;
+import java.util.StringJoiner;
 
 public class ByteBufferedRimpMessage extends RimpMessage<ByteBuffer,ByteBuffer> {
 
@@ -44,6 +46,15 @@ public class ByteBufferedRimpMessage extends RimpMessage<ByteBuffer,ByteBuffer> 
         return super.setData(_data);
     }
 
+    @Override
+    @Nullable
+    public ByteBuffer getData() {
+        if(data==null) return null;
+        var bb = data.asReadOnlyBuffer();
+        bb.clear();
+        return bb;
+    }
+
     /**
      * @return must be used as readonly
      */
@@ -53,36 +64,43 @@ public class ByteBufferedRimpMessage extends RimpMessage<ByteBuffer,ByteBuffer> 
     }
 
     @Override
-    public ByteBuffer getData() {
-        var bb = data.asReadOnlyBuffer();
-        bb.clear();
-        return bb;
-    }
-
-    public ByteBufferedRimpMessage setCharset(Charset _charset){
-        charset=_charset;
-        changed=true;
-        return this;
-    }
-
-    @Override
     public ByteBuffer serialize() {
         if(!changed) return serialized;
         if(encoder==null) encoder = charset.newEncoder();
         else if(!encoder.charset().equals(charset)) encoder = charset.newEncoder();
-        //todo
-        throw new UnsupportedOperationException();
+        var sb = new StringBuilder();
+        sb.append(RIMP).append(' ').append(method);
+        if(!isRequestNotResponse) sb.append(statusCode);
+        sb.append(CRLF);
+        for(var key : headers.keySet()) {
+            sb.append(key).append(':');
+            var sj = new StringJoiner(";");
+            headers.get(key).forEach(sj::add);
+            sb.append(sj.toString()).append(CRLF);
+        }
+        sb.append(CRLF);
+        var bufLen = sb.length()+(data!=null?data.capacity():0);    //because all data in sb in eascii
+        ByteBuffer buffer = ByteBuffer.allocate(bufLen);
+        encoder.reset();
+        var eres = encoder.encode(CharBuffer.wrap(sb.toString()),buffer,true);
+//        eres = encoder.flush(serialized);
+        if(!eres.isUnderflow()) throw new RuntimeException(eres.toString()); //todo
+        if(data!=null){
+            data.clear();
+            buffer.put(data);
+        }
+        serialized = buffer;
+        changed = false;
+        return serialized;
     }
 
-    public static ByteBufferedRimpMessage from(ByteBuffer _bb, boolean _newBackedBuffer) throws ParseException{
-        //todo redo
+    public static ByteBufferedRimpMessage deserialize(ByteBuffer _bb, boolean _newBackedBuffer) throws ParseException{
         var bb = _newBackedBuffer ? Util.deepClone(_bb) : _bb;
         var pline = parseProtocolLine(bb);
-        if(!pline[0].equals("RIMP")) throw new ParseException("It's not RIMP message",0);
-        ByteBufferedRimpMessage message = pline.length==4
-                ? new ByteBufferedRimpMessage(Integer.parseInt(pline[2]),Method.getValue(pline[3]))
-                : new ByteBufferedRimpMessage(Method.getValue(pline[2]));
-        message.setId(pline[1]);
+        if(!pline[0].equals(RIMP)) throw new ParseException("It's not RIMP message",0);
+        ByteBufferedRimpMessage message = pline.length==PLINE_MAX_LEN
+                ? new ByteBufferedRimpMessage(Integer.parseInt(pline[2]),Method.getValue(pline[1]))
+                : new ByteBufferedRimpMessage(Method.getValue(pline[1]));
         var headers = parseHeaders(bb,message.headers);
         message.setHeaders(headers);
         message.setData(bb.slice());
@@ -93,7 +111,7 @@ public class ByteBufferedRimpMessage extends RimpMessage<ByteBuffer,ByteBuffer> 
     }
 
     /***
-     * Valid string: "word( word){2,3}\r\n"
+     * Valid string: "word( word){1,2}\r\n"
      * where word: [a-zA-Z0-9_-]+
      * else ParseException will be thrown
      * Line are returned in uppercase
@@ -101,17 +119,15 @@ public class ByteBufferedRimpMessage extends RimpMessage<ByteBuffer,ByteBuffer> 
     private static String[] parseProtocolLine(ByteBuffer _bb) throws ParseException {
         var sb = new StringBuilder();
         byte cr='\r', lf='\n';
-        byte b =_bb.get();
-        while (b!=cr){
-            b = _bb.get();
+        byte b;
+        while ((b=_bb.get())!=cr)
             sb.append(b);
-        }
         if(_bb.get()!=lf) throw new ParseException("Malformed protocol line: bad CRLF", _bb.position());
         var line = sb.toString().toUpperCase();
         var words = line.split(" ");
-        if(words.length!=3 && words.length!=4)
+        if(words.length!=PLINE_MIN_LEN && words.length!=PLINE_MAX_LEN)
             throw new ParseException("Malformed protocol line, wrong word count: \""+line+"\"",0);
-        if(Arrays.stream(words ).anyMatch(String::isEmpty))
+        if(Arrays.stream(words).anyMatch(String::isEmpty))
             throw new ParseException("Malformed protocol line, too much spaces: \""+line+"\"",0);
         return words;
     }

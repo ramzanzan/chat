@@ -1,4 +1,4 @@
-package ramzanzan.chat.util;
+package dev.ramzanzan.chat.util;
 
 import org.springframework.web.socket.WebSocketHandler;
 import org.springframework.web.socket.WebSocketMessage;

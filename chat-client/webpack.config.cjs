@@ -1,16 +1,24 @@
 const path = require('path');
+const CopyPlugin = require('copy-webpack-plugin');
 
-const bundlePath = '../chat-server/src/main/resources/static';
-const bundleName = 'chat.bundle.js';
+const bundleOutputPath = path.resolve(__dirname,'../chat-server/src/main/resources/static');
+// const bundleOutputName = 'main.js';
 
 //todo write to pack.json.version with pom version
 
 module.exports = {
-    // mode: "development",
-    entry: './src/main/js/chat.js',
+    mode: 'development',
+    plugins: [
+        new CopyPlugin([
+            { from: path.resolve(__dirname,'src/main/resources'), to: bundleOutputPath }
+        ]),
+    ]
+    ,entry: {
+        main: path.resolve(__dirname,'src/main/js/main.js')
+    },
     output: {
-        path: path.resolve(__dirname, bundlePath),
-        filename: bundleName,
+        filename: '[name].js',
+        path: bundleOutputPath
     },
     module: {
         rules: [
@@ -20,9 +28,16 @@ module.exports = {
                 use: {
                     loader: 'babel-loader',
                     options: {
-                        presets: ['@babel/preset-env'],
+                        presets: [
+                            ['@babel/preset-env', {
+                                targets: {
+                                    esmodules: true
+                                }}
+                            ]
+                        ],
                         plugins: [  '@babel/plugin-proposal-object-rest-spread',
-                                    '@babel/plugin-proposal-class-properties'   ],
+                                    '@babel/plugin-proposal-class-properties',
+                        ],
                         cacheDirectory: true
                     }
                 }

@@ -1,4 +1,4 @@
-package ramzanzan.chat.exceptions;
+package dev.ramzanzan.chat.exceptions;
 
 import lombok.Getter;
 

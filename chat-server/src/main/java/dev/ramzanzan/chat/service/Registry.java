@@ -1,16 +1,14 @@
-package ramzanzan.chat.service;
+package dev.ramzanzan.chat.service;
 
 import org.apache.commons.collections4.trie.PatriciaTrie;
 import org.springframework.lang.Nullable;
-import org.springframework.stereotype.Service;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-@Service
-public class PeerRegistry<T> {
+public class Registry<T> {
 
     private Map<String,T> sessions = new ConcurrentHashMap<>(1<<10);
     private PatriciaTrie<T> trie = new PatriciaTrie<>();

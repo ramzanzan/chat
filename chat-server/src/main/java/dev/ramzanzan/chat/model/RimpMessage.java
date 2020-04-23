@@ -1,4 +1,4 @@
-package ramzanzan.chat.model;
+package dev.ramzanzan.chat.model;
 
 import lombok.Getter;
 import org.springframework.util.LinkedMultiValueMap;
@@ -34,6 +34,9 @@ public abstract class RimpMessage<D,S> {
     }
 
     protected static final String RIMP = "RIMP";
+    protected static final String CRLF = "\r\n";
+    protected static final int PLINE_MIN_LEN = 2;
+    protected static final int PLINE_MAX_LEN = 3;
     protected static final Random random = new Random(new Date().getTime());
 
     protected boolean isRequestNotResponse;
@@ -51,10 +54,6 @@ public abstract class RimpMessage<D,S> {
         statusCode = _statusCode;
         method=_method;
         isRequestNotResponse =false;
-    }
-
-    public RimpMessage<D,S> setId(String _id){
-        return this;
     }
 
     public RimpMessage<D,S> addHeader(String _header, String _value){

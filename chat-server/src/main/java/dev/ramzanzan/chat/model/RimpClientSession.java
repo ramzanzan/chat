@@ -1,6 +1,6 @@
-package ramzanzan.chat.model;
+package dev.ramzanzan.chat.model;
 
-import ramzanzan.chat.exceptions.RimpIOException;
+import dev.ramzanzan.chat.exceptions.RimpIOException;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.socket.BinaryMessage;
@@ -16,14 +16,14 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 @Getter
 @Slf4j
-public class ChattingPeerSession {
+public class RimpClientSession {
 
     private String id;
     private WebSocketSession wss;
     private Set<String> invitesFrom;
-    private Map<String, ChattingPeerSession> dialogs;
+    private Map<String, RimpClientSession> dialogs;
 
-    public ChattingPeerSession(WebSocketSession _wss){
+    public RimpClientSession(WebSocketSession _wss){
         wss = new ConcurrentWebSocketSessionDecorator(_wss, 2000, 1<<12);
     }
 
@@ -33,7 +33,7 @@ public class ChattingPeerSession {
         dialogs = new ConcurrentHashMap<>();
     }
 
-    public ChattingPeerSession getPaired(String _id){
+    public RimpClientSession getPaired(String _id){
         return dialogs.get(_id);
     }
 
