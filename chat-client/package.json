@@ -13,7 +13,7 @@
     "@babel/plugin-proposal-class-properties": "^7.8.3",
     "@babel/plugin-proposal-object-rest-spread": "^7.8.3",
     "@babel/preset-env": "^7.8.7",
-    "ava": "^3.5.0",
+    "ava": "^5.2.0",
     "babel-loader": "^8.0.6",
     "copy-webpack-plugin": "^5.1.1",
     "esm": "^3.2.25",
